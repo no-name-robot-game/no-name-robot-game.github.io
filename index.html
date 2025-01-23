@@ -1,0 +1,653 @@
+<!doctype html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		<title>ROBOT GAME DEMO</title>
+
+		<!-- Babylon.js -->
+		<script src="babylonjs/dat.gui.min.js"></script>
+		<script src="babylonjs/Assets.js"></script>
+		<script src="babylonjs/recast.js"></script>
+		<script src="babylonjs/ammo.js"></script>
+		<script src="babylonjs/HavokPhysics_umd.js"></script>
+		<script src="babylonjs/cannon.js"></script>
+		<script src="babylonjs/Oimo.js"></script>
+		<script src="babylonjs/earcut.min.js"></script>
+		<script src="babylonjs/babylon.js"></script>
+		<script src="babylonjs/babylonjs.materials.min.js"></script>
+		<script src="babylonjs/babylonjs.proceduralTextures.min.js"></script>
+		<script src="babylonjs/babylonjs.postProcess.min.js"></script>
+		<script src="babylonjs/babylonjs.loaders.js"></script>
+		<script src="babylonjs/babylonjs.serializers.min.js"></script>
+		<script src="babylonjs/babylon.gui.min.js"></script>
+		<script src="babylonjs/babylonjs.addons.min.js"></script>
+		<script src="babylonjs/babylon.inspector.bundle.js"></script>
+
+		<style>
+			html,
+			body {
+				background-color: #000000;
+				overflow: hidden;
+				width: 100vw;
+				height: 100vw;
+				margin: 0;
+				padding: 0;
+			}
+			
+			#startDiv {
+				z-index: 15;
+				position: absolute;
+				background-color: #000000;
+				color: #ffffff;
+				left: 0px;
+				top: 0px;			
+				width: 100vw;
+				height: 100vh;
+				touch-action: none;
+				border:none;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				text-align: center;
+			} 
+			
+			#mainImage {
+				z-index: 20;
+				max-height: 90vh;
+				max-width: 90vw;
+				border-radius: 20px;
+				cursor: pointer;
+			}            
+			
+			#renderCanvas {
+				z-index: 5;
+				position: absolute;
+				left: 0vw;
+				top: 0vh;			
+				width: 100vw;
+				height: 100vh;
+				touch-action: none;
+			}			
+			
+			#stats-div {
+				z-index: 8;
+				position: fixed;
+				top: 15px;
+				left: 50%;
+				overflow: hidden;
+				pointer-events: none;
+				touch-action: none;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				text-align: center;
+				-webkit-user-select: none; /* Safari */
+				-ms-user-select: none; /* IE 10 and IE 11 */
+				user-select: none; /* Standard syntax */
+			}
+			
+			#stats-text {
+				display: inline-block;
+				color: rgb(255, 255, 255);
+				width: 100%;
+				height: 100%;
+				font-size: small;
+				text-shadow: 0px 0px 4px #000000;
+			}
+			
+			#loadingOverlay {
+				color: #FFFFFF;
+				font-family: Courier;
+				font-size: 4vh;
+				z-index: 10;
+				position: absolute;
+				left: 0vw;
+				bottom: 52vh;
+				width: 100vw;
+				height: 5vh;
+			}            
+			
+		</style>		
+	</head>
+	
+	<body>
+		
+		<div id="startDiv">
+			<div id="loadingOverlay"><p align=center><font>...loading...</font></p></div>             
+			<img id="mainImage" src="./images/play.png" border="0" onclick="startGame('play');">
+		</div>
+		
+		<canvas id="renderCanvas"></canvas>	
+		
+		<div id="stats-div"> 
+			<p id="stats-text">FPS: 60</p>
+		</div> 		
+		
+		<script>
+			var canvas = document.getElementById("renderCanvas");
+			
+			//var pathname = "https://gilhoy.com/robots";
+			//var pathname = ".";
+			var pathname = "https://robots-game.github.io/demo/";
+			
+// Begin scene creation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////			
+			
+			var startRenderLoop = function (engine, canvas) {
+				engine.runRenderLoop(function () {
+					if (sceneToRender && sceneToRender.activeCamera) {
+						sceneToRender.render();
+					}
+				});
+			}
+			
+			var engine = null;
+			var scene = null;
+			var sceneToRender = null;
+			var camera = null;
+			var light1 = null;
+			var light2 = null;
+			var light3 = null;
+			var ground = null;
+			var advancedTexture = null;
+			var player = null;
+			var playerModel = null;
+			var screenWidth;
+			var screenHeight; 
+			
+			var state = 'play';
+			var enlargeStatus = false;
+			var canvasParent = document.body;
+			var playButton = document.getElementById("mainImage");
+			var startDiv = document.getElementById("startDiv");
+			
+			playButton.style.display = "none";            
+			
+			var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+			var statsDiv = document.getElementById("stats-text");
+			var renderCanvas = document.getElementById("renderCanvas");
+			
+			var createScene = () => {
+				
+				const keys = {
+					jump: 0,
+					fly: 0,
+					left: 0,
+					right: 0,
+					forward: 0,
+					back: 0
+				}
+				
+				const scene = new BABYLON.Scene(engine);
+				
+				scene.enablePhysics(null, new BABYLON.CannonJSPlugin());
+				
+				// The following function calls are creating the entirety of the game world //////////////
+					
+					addPlayerCamera();
+					
+					addGUI();
+					
+					// We are adding three different type of lights as "one" light source for their differing effects
+					addLights(0.25,0.3,0.3,50,200,90); // usage: addlights(light#1 brightness, light#2 brightness, light#3 brightness, light position x, light position y, light position z);
+					
+					// Loads skybox and creates skybox floor
+					createSkyBox("skybox_001.glb","lawn_c.jpg"); // usage: createSkyBox(model file, floor texture);
+					
+					// Creates ground from heightmap file
+					createGroundFromHeightMap("heightmap.png","lawn_c.jpg"); // usage: createGroundFromHeightMap(heightmap file, ground texture);
+					
+					// Creates the player object with the size of the 3D model
+					createPlayer(1.902,1.4); // usage: createPlayer(height, width);
+					
+					// Attaches the 3D model to the player object
+					attachModelToPlayer("peewee_master_002_004.glb"); // usage: attachModelToPlayer(model file);
+					
+				// The preceding function calls are creating the entirety of the game world //////////////
+				
+// In-scene functions ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////                
+				 
+				function createPlayer(height,diameter) {
+					
+					player = BABYLON.MeshBuilder.CreateCylinder('playerCylinder', {height: height, diameter: diameter}, scene);
+					player.isVisible = false;
+					player.checkCollisions = true;
+					
+					player.physicsImpostor = new BABYLON.PhysicsImpostor(player, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 1, friction: 1, restitution: 0.1 }, scene);
+					
+					const Material = new BABYLON.StandardMaterial('material', scene);
+					Material.emissiveColor = new BABYLON.Color3(0, 0.58, 0.86);
+					player.material = Material;
+					player.position.z = 0.0;
+					camera.setTarget(player);
+					
+					let speed = 0.15;
+					
+					window.addEventListener('keydown', handleKeyDown, false);
+					window.addEventListener('keyup', handleKeyUp, false);
+					
+					let action = 16
+					function handleKeyDown (evt) {
+						if (evt.keyCode == 32) {
+							keys.jump = 1; // space
+						}
+						if (evt.keyCode == 65 || evt.key == 'ArrowLeft') {
+							keys.left = 1; // A
+						}
+						if (evt.keyCode == 68 || evt.key == 'ArrowRight') {
+							keys.right = 1; // D
+						}
+						if (evt.keyCode == 87 || evt.key == 'ArrowUp') {
+							keys.forward = 1; // W
+						}
+						if (evt.keyCode == 83 || evt.key == 'ArrowDown') { 
+							keys.back = 1; // S
+						}
+						if (evt.keyCode == 16) speed = 0.1 // shift
+						
+						if (action !== evt.keyCode) {
+							action = evt.keyCode;
+						}
+					}
+					function handleKeyUp (evt) {
+						if (evt.keyCode == 32) keys.forward = 0;
+						if (evt.keyCode == 70) keys.fly = 0;
+						if (evt.keyCode == 65 || evt.key == 'ArrowLeft') keys.left = 0;
+						if (evt.keyCode == 68 || evt.key == 'ArrowRight') keys.right = 0;
+						if (evt.keyCode == 87 || evt.key == 'ArrowUp') keys.forward = 0;
+						if (evt.keyCode == 83 || evt.key == 'ArrowDown') keys.back = 0;
+						if (evt.keyCode == 16) speed = 0.05;
+						
+						action = evt.keyCode;
+					}
+					
+					camera.lockedTarget = player;               
+					
+					engine.runRenderLoop(() => {
+						if (player != null) {
+							player.update();
+						}
+					});
+					
+					setInterval(() => {
+						statsDiv.style.display = "";
+					}, 500);                
+					
+					player.update = function () {
+						
+						var cameraForwardRayPosition = camera.getForwardRay().direction
+						var cameraForwardRayPositionWithoutY = new BABYLON.Vector3(cameraForwardRayPosition.x, 0, cameraForwardRayPosition.z)
+						
+						if (keys) {
+							if (keys.jump) {
+								player.physicsImpostor.applyImpulse(new BABYLON.Vector3(0, 0.25, 0), player.getAbsolutePosition())
+							}
+							if (keys.left) {
+								player.locallyTranslate(new BABYLON.Vector3(-speed, 0, 0));
+							}
+							if (keys.right) {
+								player.locallyTranslate(new BABYLON.Vector3(speed, 0, 0));
+							}
+							if (keys.forward) {
+								player.lookAt(player.position.add(cameraForwardRayPositionWithoutY), 0, 0, 0);
+								player.position = player.position.add(new BABYLON.Vector3(cameraForwardRayPosition.x * speed, 0, cameraForwardRayPosition.z * speed));
+							}
+							if (keys.back) {
+								player.lookAt(player.position.add(cameraForwardRayPositionWithoutY), 0, 0, 0);
+								player.position = player.position.add(new BABYLON.Vector3(-cameraForwardRayPosition.x * speed, 0, -cameraForwardRayPosition.z * speed));
+							}
+						}
+					}
+					
+				}
+				
+				function attachModelToPlayer(file) {
+					
+					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/actors/", file).then((result) => {
+						
+						var playerModel = result.meshes[0];
+						playerModel.position = new BABYLON.Vector3(0, 0, 0);
+						
+						// Setup Animations
+						var idleAnim = result.animationGroups[0];
+						var walkAnim = result.animationGroups[1];
+						idleAnim.start(true);
+						var currentAnim = idleAnim;
+						
+						// Setup playerModel
+						playerModel.isPickable = false;
+						
+						// Create a Main player Transform Root
+						playerModelTransform = new BABYLON.TransformNode("playerModel_Root", scene);    
+						playerModel.parent = playerModelTransform;                        
+						playerModel.position = new BABYLON.Vector3(0, 0, 0);
+						playerModel.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(0), BABYLON.Space.LOCAL);
+						const startRotation = playerModel.rotationQuaternion.clone(); 
+						
+						playerModel.parent = player;
+						playerModel.position = new BABYLON.Vector3(playerModel.parent.position.y + 0.98, playerModel.parent.position.z - 0.94, playerModel.parent.position.x);
+						
+						playerModel.update = function () {
+							
+							if (keys) {
+								if (keys.left) {
+									 walkAnim.start(true); 
+								}
+								if (keys.right) {
+									walkAnim.start(true);    
+								}
+								if (keys.forward) {
+									walkAnim.start(true);
+								}
+								if (keys.back) {
+									walkAnim.start(true);    
+								}
+								if (!keys.back && !keys.forward && !keys.right && !keys.left) {
+									walkAnim.stop(true);
+									idleAnim.start(true);   
+								}                            
+							} 
+							
+						}
+						
+						var shadowGenerator2 = new BABYLON.ShadowGenerator(1024, light2);
+						shadowGenerator2.addShadowCaster(playerModel);
+						shadowGenerator2.useBlurExponentialShadowMap = true;                    	
+						
+						engine.runRenderLoop(() => {
+							if (playerModel != null) {
+								playerModel.update();
+							}
+						})
+						
+					});
+					
+				}                
+				
+				function addGUI() {
+					
+					screenWidth = window.innerWidth;
+					screenHeight = window.innerHeight;
+					
+					advancedTexture = new BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+					advancedTexture.layer.layerMask = 0x10000000;
+					advancedTexture.renderScale = 1;
+					
+					addThumbButton("forward");
+					addThumbButton("back");
+					addThumbButton("left");
+					addThumbButton("right");
+					
+					addButton("Exit Game");
+					
+				}                
+				
+				function addLights(int1,int2,int3,x,y,z) {
+					
+					light1 = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 100, 0));
+					light1.intensity = int1;
+					
+					light2 = new BABYLON.DirectionalLight("light2", new BABYLON.Vector3(-1, -2, -1), scene);
+					light2.position = new BABYLON.Vector3(x, y, z);
+					light2.intensity = int2;
+					
+					light3 = new BABYLON.DirectionalLight("light3", new BABYLON.Vector3(-1, -2, -1), scene);
+					light3.position = new BABYLON.Vector3(x, y, z);
+					light3.intensity = int3;            	
+					
+					var lightSphere = BABYLON.Mesh.CreateSphere("sphere", y, 20, scene);
+					lightSphere.position = new BABYLON.Vector3(x, y, z);
+					lightSphere.material = new BABYLON.StandardMaterial("light", scene);
+					lightSphere.material.emissiveColor = new BABYLON.Color3(1, 1, 0);
+					
+				}                
+				
+				function addPlayerCamera() {
+					
+					camera = new BABYLON.ArcRotateCamera('arcCamera1', 0, 0, 10, BABYLON.Vector3.Zero(), scene);
+					camera.attachControl(canvas, false);
+					camera.setPosition(new BABYLON.Vector3(-40, 40, -40));
+					camera.checkCollisions = true;
+					camera.applyGravity = true;
+					camera.useAutoRotationBehavior = true;
+					camera.useFramingBehavior = true;
+					camera.wheelDeltaPercentage = 0.01; // change rate at which scroll wheel changes zoom
+					camera.lowerRadiusLimit = 14; // set how close the camera can get to the target
+					camera.upperRadiusLimit = 16; // set how far the camera can zoom out
+					camera.upperBetaLimit = Math.PI / 1.5; // stops the camera from going below the ground
+					
+					camera.keysLeft = [];
+					camera.keysRight = [];
+					camera.keysUp = [];
+					camera.keysDown = [];
+					
+					var defaultPipeline = new BABYLON.DefaultRenderingPipeline("default", true, scene, [camera]);
+					defaultPipeline.fxaaEnabled = true; //defaults to false
+					defaultPipeline.imageProcessing.toneMappingEnabled  = true; //defaults to false          
+					defaultPipeline.imageProcessing.contrast = 2; //defaults to 1
+					defaultPipeline.imageProcessing.exposure = 5; //defaults to 1
+					
+					scene.postProcessRenderPipelineManager.addPipeline(defaultPipeline);
+					scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("defaultPipeline", camera);
+					
+					var bgCamera = new BABYLON.ArcRotateCamera("BGCamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new BABYLON.Vector3(0, 20, 0), scene);
+					bgCamera.layerMask = 0x10000000;
+				   
+					scene.activeCameras = [camera, bgCamera];
+					
+					return camera;
+					
+				}                
+				
+				function addButton(text) {
+					
+					var buttonSize = 100;
+					var margin = 100;
+					var button = BABYLON.GUI.Button.CreateSimpleButton(text+"_button", text);
+					screenWidth = window.innerWidth;
+					screenHeight = window.innerHeight;                     
+					button.width = buttonSize + "px"
+					button.fontSize = 12;
+					button.height = (buttonSize / 1.65) + "px";
+					button.color = "black";
+					button.cornerRadius = 20;
+					button.background = "skyblue";
+					button.paddingBottom = "10px";
+					button.paddingRight = "20px";
+					button.alpha = 0.5;
+					if(text == "Exit Game") {
+						button.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+						button.top = "-" + ((screenHeight / 2) - (buttonSize / 2)) + "px";
+						button.onPointerDownObservable.add(function() {
+							stopGame();
+						});                        
+					}
+					
+					advancedTexture.addControl(button);                 
+				}
+				
+				function addThumbButton(name){
+					
+					var buttonSize = 60;
+					var button = BABYLON.GUI.Button.CreateSimpleButton(name+"_button", name);
+					screenWidth = window.innerWidth;
+					screenHeight = window.innerHeight;                    
+					button.width = buttonSize + "px"
+					button.height = buttonSize + "px"
+					button.fontSize = 12;
+					button.color = "black";
+					button.cornerRadius = 75;
+					button.alpha = 0.5;
+					button.background = "#87ceeb";
+					
+					if(name == "forward") {
+						button.width = buttonSize * 1.6 + "px"
+						button.height = buttonSize * 1.6 + "px" 
+						button.fontSize = 14;
+						button.left = "-" + ((screenWidth / 2) - (buttonSize * 2)) + "px";
+						button.top = (screenHeight / 2) - (buttonSize * 2.5) + "px";
+						button.onPointerDownObservable.add(function() {
+							keys.forward = 1;
+						});                
+						button.onPointerUpObservable.add(function() {
+							keys.forward = 0;
+						});
+					}
+					if(name == "back") {
+						button.left = "-" + ((screenWidth / 2) - (buttonSize * 2)) + "px";
+						button.top = ((screenHeight / 2) - (buttonSize / 1.2)) + "px"; 
+						button.onPointerDownObservable.add(function() {
+							keys.back = 1;
+						});                
+						button.onPointerUpObservable.add(function() {
+							keys.back = 0;
+						});
+					} 
+					if(name == "right") {
+						button.left = "-" + ((screenWidth / 2) - (buttonSize * 3)) + "px";
+						button.top = ((screenHeight / 2) - (buttonSize / 0.7)) + "px"; 
+						button.onPointerDownObservable.add(function() {
+							keys.right = 1;
+						});                
+						button.onPointerUpObservable.add(function() {
+							keys.right= 0;
+						});
+					}
+					if(name == "left") {
+						button.left = "-" + ((screenWidth / 2) - (buttonSize * 1)) + "px";
+						button.top = ((screenHeight / 2) - (buttonSize / 0.7)) + "px";  
+						button.onPointerDownObservable.add(function() {
+							keys.left = 1;
+						});                
+						button.onPointerUpObservable.add(function() {
+							keys.left = 0;
+						});
+					}
+					
+					advancedTexture.addControl(button); 
+				   
+				}
+				
+				function createSkyBox(file,floorImage) {
+					
+					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/skybox/", file).then((result) => {
+						var skybox = result.meshes[0];
+						var skyboxMaterial = new BABYLON.StandardMaterial('skyBox', scene);
+						skyboxMaterial.backFaceCulling = false;
+						skyboxMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1);
+						skyboxMaterial.specularColor = new BABYLON.Color3(1, 1, 1);
+						skyboxMaterial.disableLighting = true;
+						skybox.material = skyboxMaterial;
+					});
+					
+					// Floor
+					var floor = new BABYLON.MeshBuilder.CreatePlane("plane", {height:2000, width: 2000});
+					var floorMaterial = new BABYLON.StandardMaterial("ground", scene);
+					floorMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/" + floorImage, scene);
+					floorMaterial.diffuseTexture.uScale = 1;
+					floorMaterial.diffuseTexture.vScale = 1;
+					floorMaterial.specularColor = new BABYLON.Color3(0, 0, 0); 
+					floor.material = floorMaterial;
+					
+					floor.rotation.x = BABYLON.Tools.ToRadians(90);
+					floor.position = new BABYLON.Vector3(0, -10, 0);
+					
+				}
+				
+				function createGroundFromHeightMap(heightmap,diffuse) {
+					
+					ground = BABYLON.Mesh.CreateGroundFromHeightMap("ground", pathname + "/textures/" + heightmap, 225, 225, 100, 0, 20, scene, false, () => {
+						ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.HeightmapImpostor, { mass: 0, friction: 1, restitution: 0.7  })
+					})
+					ground.position.y = -2;
+					ground.position.x = -60;
+					ground.position.z = 0;
+					ground.checkCollisions = true;
+					ground.isVisible = true;
+					
+					const groundMaterial = new BABYLON.StandardMaterial("ground");
+					groundMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/"+diffuse, scene);
+					groundMaterial.diffuseTexture.uScale = 1;
+					groundMaterial.diffuseTexture.vScale = 1;
+					groundMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+					ground.material = groundMaterial;
+					
+					ground.receiveShadows = true;
+					
+				}                
+				
+				function fixTarget() { 
+					advancedTexture.dispose();
+					engine.resize();
+					addGUI();
+					var target = BABYLON.Matrix.Translation(0,-0.5,0);
+					camera.getProjectionMatrix().multiplyToRef(target, camera.getProjectionMatrix());                    
+				}                
+				
+				var statsDiv = document.getElementById("stats-text");
+				setInterval(() => {
+					statsDiv.innerHTML = "<b>" + Math.round(engine.getFps()) + " FPS</b> ";
+				}, 100);
+				
+				window.addEventListener("resize", function () {
+					fixTarget();
+				});
+				
+				function stopGame() {
+					engine.dispose();
+					location.reload();
+				}                
+				
+				return scene;
+				
+			}
+			
+// End scene creation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			
+			// Starts the engine and scene
+			window.initFunction = async function() {
+				
+				var asyncEngineCreation = async function() {
+					try {
+						return createDefaultEngine();
+					} catch(e) {
+						console.log("the available createEngine function failed. Creating the default engine instead");
+					return createDefaultEngine();
+					}
+				}
+				
+				window.engine = await asyncEngineCreation();
+				if (!engine) throw 'engine should not be null.';
+				startRenderLoop(engine, canvas);
+				window.scene = createScene();
+				
+			};
+			
+			// Prepares the UI and calls window.initFunction
+			function startGame() {
+				playButton.style.display = "none";
+				setTimeout(function(){
+					document.body.requestFullscreen();
+					initFunction().then(() => { 
+						sceneToRender = scene;
+						setTimeout(function(){
+							startDiv.style.display = "none";
+						}, 3000);                        
+					});
+				}, 100);
+			}
+			
+			// When the DOM is fully loaded, display the play button
+			window.addEventListener('load', (event) => {
+				playButton.style.display = ""; // (display = "") removes (display = "none")
+			});			
+			
+		</script>		
+		
+	</body>
+	
+</html>
