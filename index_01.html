@@ -1,0 +1,903 @@
+<!doctype html>
+<html>
+	<head>
+		<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+
+		<title>ROBOT GAME DEMO</title>
+
+		<!-- Babylon.js -->
+		<script src="babylonjs/dat.gui.min.js"></script>
+		<script src="babylonjs/Assets.js"></script>
+		<script src="babylonjs/recast.js"></script>
+		<script src="babylonjs/ammo.js"></script>
+		<script src="babylonjs/HavokPhysics_umd.js"></script>
+		<script src="babylonjs/cannon.js"></script>
+		<script src="babylonjs/Oimo.js"></script>
+		<script src="babylonjs/earcut.min.js"></script>
+		<script src="babylonjs/babylon.js"></script>
+		<script src="babylonjs/babylonjs.materials.min.js"></script>
+		<script src="babylonjs/babylonjs.proceduralTextures.min.js"></script>
+		<script src="babylonjs/babylonjs.postProcess.min.js"></script>
+		<script src="babylonjs/babylonjs.loaders.js"></script>
+		<script src="babylonjs/babylonjs.serializers.min.js"></script>
+		<script src="babylonjs/babylon.gui.min.js"></script>
+		<script src="babylonjs/babylonjs.addons.min.js"></script>
+		<script src="babylonjs/babylon.inspector.bundle.js"></script>
+
+		<style>
+			html,
+			body {
+				background-color: #000000;
+				overflow: hidden;
+				width: 100vw;
+				height: 100vw;
+				margin: 0;
+				padding: 0;
+			}
+			
+			#startDiv {
+				z-index: 15;
+				position: absolute;
+				background-color: #000000;
+				color: #ffffff;
+				left: 0px;
+				top: 0px;			
+				width: 100vw;
+				height: 100vh;
+				touch-action: none;
+				border:none;
+				overflow: hidden;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				text-align: center;
+			} 
+			
+			#mainImage {
+				z-index: 20;
+				max-height: 60vh;
+				max-width: 90vw;
+				border-radius: 20px;
+				cursor: pointer;
+			}            
+			
+			#renderCanvas {
+				z-index: 5;
+				position: absolute;
+				left: 0vw;
+				top: 0vh;			
+				width: 100vw;
+				height: 100vh;
+				touch-action: none;
+			}			
+			
+			#stats-div {
+				z-index: 8;
+				position: fixed;
+				top: 15px;
+				left: 50%;
+				overflow: hidden;
+				pointer-events: none;
+				touch-action: none;
+				display: flex;
+				flex-direction: column;
+				justify-content: center;
+				align-items: center;
+				text-align: center;
+				-webkit-user-select: none; /* Safari */
+				-ms-user-select: none; /* IE 10 and IE 11 */
+				user-select: none; /* Standard syntax */
+			}
+			
+			#stats-text {
+				display: inline-block;
+				color: rgb(255, 255, 255);
+				width: 100%;
+				height: 100%;
+				font-size: small;
+				text-shadow: 0px 0px 4px #000000;
+			}
+			
+			#loadingOverlay {
+				color: #FFFFFF;
+				font-family: Courier;
+				font-size: 4vh;
+				z-index: 10;
+				position: absolute;
+				left: 0vw;
+				bottom: 52vh;
+				width: 100vw;
+				height: 5vh;
+			}            
+			
+		</style>		
+	</head>
+	
+	<body>
+		
+		<div id="startDiv">
+			<div id="loadingOverlay"><p align=center><font>...loading...</font></p></div>             
+			<img id="mainImage" src="./images/play.png" border="0" onclick="startGame('play');">
+		</div>
+		
+		<canvas id="renderCanvas"></canvas>	
+		
+		<div id="stats-div"> 
+			<p id="stats-text">FPS: 60</p>
+		</div> 		
+		
+		<script>
+			var canvas = document.getElementById("renderCanvas");
+			
+			var pathname = "https://gilhoy.com/robots";
+			//var pathname = ".";
+			//var pathname = "https://robots-game.github.io";
+
+			console.log("begin");
+			
+// Begin scene creation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////			
+			
+			var startRenderLoop = function (engine, canvas) {
+				engine.runRenderLoop(function () {
+					if (sceneToRender && sceneToRender.activeCamera) {
+						sceneToRender.render();
+					}
+				});
+			}
+			
+			var engine = null;
+			var scene = null;
+			var sceneToRender = null;
+			var camera = null;
+			var light1 = null;
+			var light2 = null;
+			var light3 = null;
+			var ground = null;
+			var advancedTexture = null;
+			var player = null;
+			var playerModel = null;
+			var screenWidth = null;
+			var screenHeight = null; 
+			var shadowGenerator = null;
+			var prop = null;
+			var speed = null;
+			var cell = null;
+			
+			var idleAnim = null;
+			var walkAnim = null;
+			var jumpAnim = null;
+			var runAnim = null;			
+			
+			var state = 'play';
+			var enlargeStatus = false;
+			var canvasParent = document.body;
+			var playButton = document.getElementById("mainImage");
+			var startDiv = document.getElementById("startDiv");
+			var loadingOverlay = document.getElementById("loadingOverlay");
+			
+			playButton.style.display = "none";            
+			
+			var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
+			var statsDiv = document.getElementById("stats-text");
+			var renderCanvas = document.getElementById("renderCanvas");
+			
+			var createScene = () => {
+				
+				const keys = {
+					jump: 0,
+					fly: 0,
+					left: 0,
+					right: 0,
+					forward: 0,
+					back: 0,
+					run: 0
+				}
+				
+				const scene = new BABYLON.Scene(engine);
+				
+				// Create physics
+				const gravity = new BABYLON.Vector3(0, -15, 0);
+				scene.physicsPlugin = new BABYLON.AmmoJSPlugin();
+				scene.enablePhysics(gravity, scene.physicsPlugin);
+				world = scene.physicsPlugin.world;
+				
+				// The following function calls are creating the entirety of the game world //////////////
+					
+					addPlayerCamera();
+					
+					addGUI();
+					
+					// We are adding three different type of lights as "one" light source for their differing effects
+					addLights(0.25,0.3,0.3,50,200,90); // usage: addlights(light#1 brightness, light#2 brightness, light#3 brightness, light position x, light position y, light position z);
+					
+					// Loads skybox and creates skybox floor
+					createSkyBox("skybox_001.glb","lawn_g.jpg"); // usage: createSkyBox(model file, floor texture);
+					
+					// Creates ground from heightmap file
+					createGroundFromHeightMap("heightmap4.jpg","lawn_g.jpg"); // usage: createGroundFromHeightMap(heightmap file, ground texture);
+					
+					// Adds a 3D model, can be of type 'props' or 'actors'.
+					//attachProp("actors","behemoth2.glb",-40,6,-40,1,135); // usage: attachProp(type, file, model position x, model position y, model position z, scale, rotation 0 to 360);	
+					
+					// We want a bunch of trees, but we need the ground in place first, so we call an async function to check for it
+					//addForestAsync(1, 7, 50);
+					//addForestAsync(2, 9, 58);				
+					
+					// Creates the player object with the size of the 3D model
+					createPlayer(1.902,1.4); // usage: createPlayer(height, width);
+					
+					// Attaches the 3D model to the player object
+					attachModelToPlayer("peewee"); // usage: attachModelToPlayer(model name);
+					
+				// The preceding function calls are creating the entirety of the game world //////////////
+				
+// In-scene functions /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+				
+				function addForest(rows, nTrees, corner) {
+					
+					startCorner = corner;
+					treeWidth = 16;
+					scale = 10;
+					type = "props";
+					file = "tree_02.glb";
+					
+					x = startCorner;
+					z = startCorner;
+					y = getHeightAtOctreeGroundCoordinates(x, z);
+					rotation = getRandomNumber(0,360);					
+					
+					for (let i = 1; i <= nTrees; i++) {
+						
+						y = ground.getHeightAtCoordinates(x, z) - 0.8;
+						
+						attachProp(type, file, x, y, z, scale, rotation);
+						
+						if( i == nTrees ) {
+							x = (x - treeWidth);
+							z = startCorner;
+							y = getHeightAtOctreeGroundCoordinates(x, z) - 0.8;
+							rotation = getRandomNumber(0,360);						
+						} else {
+							x = (x - treeWidth);
+							z = startCorner;
+							y = getHeightAtOctreeGroundCoordinates(x, z) - 0.8;
+							rotation = getRandomNumber(0,360);
+						}
+						
+					}
+					
+				}
+				
+				function attachProp(type,file,posX,posY,posZ,scale,rotation) {
+					
+					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/" + type + "/", file).then((result) => {
+						
+						prop = result.meshes[0];
+						prop.scaling.x = scale;
+						prop.scaling.y = scale;
+						prop.scaling.z = scale;
+						prop.position.x = posX;
+						prop.position.y = posY;
+						prop.position.z = posZ;
+						prop.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(rotation), BABYLON.Space.LOCAL);
+						prop.material = cell;
+						//prop.material.freeze();
+						prop.freezeWorldMatrix();
+						
+						shadowGenerator.addShadowCaster(prop);	
+						
+						prop.checkCollisions = true;
+						
+					});
+					
+				} 
+				
+				function getHeightAtOctreeGroundCoordinates(x, z) {
+					
+					var height;
+					var origin = new BABYLON.Vector3(x, 100, z);
+					var down = new BABYLON.Vector3(x, -100, z);
+					
+					var ray = new BABYLON.Ray(origin, down);
+					var hit = scene.pickWithRay(ray);
+					
+					if (hit.pickedPoint) {
+						height = hit.pickedPoint.y;
+					}
+					
+					return height;
+				}
+				
+				function addForestAsync(rows, nTrees, corner) {
+					
+					scene.onReadyObservable.add(() => {
+						setTimeout(()=> {
+							addForest(rows, nTrees, corner)	
+						}, 500);
+					});				
+					
+				}              
+				
+				function createPlayer(height,diameter) {
+					
+					player = BABYLON.MeshBuilder.CreateCylinder('playerCylinder', {height: height, diameter: diameter}, scene);
+					player.isVisible = false;
+					player.checkCollisions = true;
+					
+					player.physicsImpostor = new BABYLON.PhysicsImpostor(player, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 1000, friction: 50, restitution: 0.0 }, scene);
+					
+					const Material = new BABYLON.StandardMaterial('material', scene);
+					Material.emissiveColor = new BABYLON.Color3(0, 0.58, 0.86);
+					player.material = Material;
+					player.material.freeze();
+					player.position.y = 5;
+					camera.setTarget(player);
+					
+					const minSpeed = 0.15;
+					const maxSpeed = 0.20;
+					
+					let speed = minSpeed;
+					
+					window.addEventListener('keydown', handleKeyDown, false);
+					window.addEventListener('keyup', handleKeyUp, false);
+					
+					let action = 16
+					function handleKeyDown (evt) {
+						if (evt.keyCode == 32) {
+							keys.jump = 1; // space
+						}
+						if (evt.keyCode == 65 || evt.key == 'ArrowLeft') {
+							keys.left = 1; // A
+						}
+						if (evt.keyCode == 68 || evt.key == 'ArrowRight') {
+							keys.right = 1; // D
+						}
+						if (evt.keyCode == 87 || evt.key == 'ArrowUp') {
+							keys.forward = 1; // W
+						}
+						if (evt.keyCode == 83 || evt.key == 'ArrowDown') { 
+							keys.back = 1; // S
+						}
+						if (evt.keyCode == 16 && (keys.forward == 1 || keys.back == 1 || keys.left == 1 || keys.right == 1)) {
+							speed = maxSpeed; 
+							keys.run = 1; // shift
+						}
+						if (action !== evt.keyCode) {
+							action = evt.keyCode;
+						}
+						if ( (keys.forward == 1 || keys.back == 1) && (keys.left == 1 || keys.right == 1) ) {
+							speed = minSpeed;
+						}
+					}
+					function handleKeyUp (evt) {
+						if (evt.keyCode == 32) keys.jump = 0;
+						if (evt.keyCode == 70) keys.fly = 0;
+						if (evt.keyCode == 65 || evt.key == 'ArrowLeft') keys.left = 0;
+						if (evt.keyCode == 68 || evt.key == 'ArrowRight') keys.right = 0;
+						if (evt.keyCode == 87 || evt.key == 'ArrowUp') keys.forward = 0;
+						if (evt.keyCode == 83 || evt.key == 'ArrowDown') keys.back = 0;
+						if (evt.keyCode == 16) {
+							speed = minSpeed;
+							keys.run = 0;
+						}
+						
+						action = evt.keyCode;
+					}
+					
+					camera.lockedTarget = player;               
+					
+					engine.runRenderLoop(() => {
+						if (player != null) {
+							player.update();
+						}
+					});                
+					
+					player.update = function () {
+						
+						var cameraForwardRayPosition = camera.getForwardRay().direction
+						var cameraForwardRayPositionWithoutY = new BABYLON.Vector3(cameraForwardRayPosition.x, 0, cameraForwardRayPosition.z)
+						
+						if (keys) {
+							
+							player.rotationQuaternion.x = 0;
+							player.rotationQuaternion.z = 0;							
+							
+							if (keys.jump) {
+								player.physicsImpostor.applyImpulse(new BABYLON.Vector3(0, 0.25, 0), player.getAbsolutePosition());
+								setTimeout(function(){
+									keys.jump = 0;
+								}, 500);
+							}
+							if (keys.left) {
+								player.locallyTranslate(new BABYLON.Vector3(-speed/2, 0, 0));
+							}
+							if (keys.right) {
+								player.locallyTranslate(new BABYLON.Vector3(speed/2, 0, 0));
+							}
+							if (keys.forward) {
+								player.lookAt(player.position.add(cameraForwardRayPositionWithoutY), 0, 0, 0);
+								player.position = player.position.add(new BABYLON.Vector3(cameraForwardRayPosition.x * speed, 0, cameraForwardRayPosition.z * speed));
+							}
+							if (keys.back) {
+								player.lookAt(player.position.add(cameraForwardRayPositionWithoutY), 0, 0, 0);
+								player.position = player.position.add(new BABYLON.Vector3(-cameraForwardRayPosition.x * speed, 0, -cameraForwardRayPosition.z * speed));
+							}
+						}
+					}
+					
+				}
+				
+				function attachModelToPlayer(name) {
+					
+					if ( name == "prototype" ) {
+						file = "prototype_anim_05.glb";
+					}
+					if ( name == "peewee" ) {
+						file = "peewee_anim_001.glb";
+					}
+					
+					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/actors/", file).then((result) => {
+						
+						var playerModel = result.meshes[0];
+						var playerRotate = 0;
+						
+						cell = new BABYLON.CellMaterial("cell", scene);
+						cell.computeHighLevel = true;
+						
+						playerModel.material = cell;
+						
+						playerModel.position = new BABYLON.Vector3(0, 0, 0);
+						
+						if ( name == "peewee" ) {
+							idleAnim = result.animationGroups[0];
+							walkAnim = result.animationGroups[1];
+							jumpAnim = result.animationGroups[3];
+							runAnim = result.animationGroups[2];
+							playerRotate = 0;
+						}
+						
+						if ( name == "prototype" ) {
+							
+							playerModel.scaling = 2;							
+							
+							idleAnim = result.animationGroups[0];
+							walkAnim = result.animationGroups[1];
+							jumpAnim = result.animationGroups[2];
+							runAnim = result.animationGroups[3];
+							playerRotate = 87;
+						}
+						
+						idleAnim.start(true);
+						
+						// Setup playerModel
+						playerModel.isPickable = false;
+						
+						// Create a Main player Transform Root
+						playerModelTransform = new BABYLON.TransformNode("playerModel_Root", scene);    
+						playerModel.parent = playerModelTransform;                        
+						playerModel.position = new BABYLON.Vector3(0, 0, 0);
+						playerModel.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(playerRotate), BABYLON.Space.LOCAL);
+						const startRotation = playerModel.rotationQuaternion.clone(); 
+						
+						playerModel.parent = player;
+						playerModel.position = new BABYLON.Vector3(playerModel.parent.position.y - 4.6, playerModel.parent.position.z - 0.9, playerModel.parent.position.x);
+						
+						playerModel.update = function () {
+							
+							if (keys) {
+								if (keys.left) {
+									idleAnim.stop(true);
+									walkAnim.start(true); 
+								}
+								if (keys.right) {
+									idleAnim.stop(true);
+									walkAnim.start(true);    
+								}
+								if (keys.forward) {
+									idleAnim.stop(true);
+									walkAnim.start(true);
+								}
+								if (keys.back) {
+									idleAnim.stop(true);
+									walkAnim.start(true);    
+								}
+								if (keys.run && (keys.back || keys.forward || keys.right || keys.left) ) {
+									runAnim.start(true);    
+								} else {
+									runAnim.stop(true);
+								}
+								if (!keys.back && !keys.forward && !keys.right && !keys.left) {
+									walkAnim.stop(true);
+									idleAnim.start(true);   
+								}                            
+							} 
+							
+						}
+						
+						shadowGenerator.addShadowCaster(playerModel);                   	
+						
+						engine.runRenderLoop(() => {
+							if (playerModel != null) {
+								playerModel.update();
+							}
+						})
+						
+					});
+					
+				}                
+				
+				function addGUI() {
+					
+					screenWidth = window.innerWidth;
+					screenHeight = window.innerHeight;
+					
+					advancedTexture = new BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
+					advancedTexture.layer.layerMask = 0x10000000;
+					advancedTexture.renderScale = 1;
+					
+					addThumbButton("forward");
+					addThumbButton("back");
+					addThumbButton("left");  
+					addThumbButton("right");
+					
+					addButton("Exit Game");
+					
+				}                
+				
+				function addLights(int1,int2,int3,x,y,z) {
+					
+					light1 = new BABYLON.HemisphericLight("light1", new BABYLON.Vector3(0, 100, 0));
+					light1.intensity = int1;
+					
+					light2 = new BABYLON.DirectionalLight("light2", new BABYLON.Vector3(-1, -2, -1), scene);
+					light2.position = new BABYLON.Vector3(x, y, z);
+					light2.intensity = int2;
+					
+					light3 = new BABYLON.DirectionalLight("light3", new BABYLON.Vector3(-1, -2, -1), scene);
+					light3.position = new BABYLON.Vector3(x, y, z);
+					light3.intensity = int3;            	
+					
+					var lightSphere = BABYLON.Mesh.CreateSphere("sphere", y, 20, scene);
+					lightSphere.position = new BABYLON.Vector3(x, y, z);
+					lightSphere.material = new BABYLON.StandardMaterial("light", scene);
+					lightSphere.material.emissiveColor = new BABYLON.Color3(1, 1, 0);
+					
+					shadowGenerator = new BABYLON.ShadowGenerator(1024, light2);
+					shadowGenerator.useBlurExponentialShadowMap = true; 					
+					
+				}                
+				
+				function addPlayerCamera() {
+					
+					camera = new BABYLON.ArcRotateCamera('arcCamera1', 0, 0, 10, BABYLON.Vector3.Zero(), scene);
+					camera.attachControl(canvas, false);
+					camera.setPosition(new BABYLON.Vector3(-20, 20, -20));
+					camera.checkCollisions = true;
+					camera.applyGravity = true;
+					camera.useAutoRotationBehavior = false;
+					camera.useFramingBehavior = true;
+					camera.wheelDeltaPercentage = 0.01; // change rate at which scroll wheel changes zoom
+					camera.lowerRadiusLimit = 14; // set how close the camera can get to the target
+					camera.upperRadiusLimit = 2000; // set how far the camera can zoom out
+					camera.upperBetaLimit = Math.PI / 1.5; // stops the camera from going below the ground
+					
+					camera.keysLeft = [];
+					camera.keysRight = [];
+					camera.keysUp = [];
+					camera.keysDown = [];
+					
+					var defaultPipeline = new BABYLON.DefaultRenderingPipeline("default", true, scene, [camera]);
+					defaultPipeline.fxaaEnabled = true; //defaults to false
+					defaultPipeline.imageProcessing.toneMappingEnabled  = false; //defaults to false          
+					defaultPipeline.imageProcessing.contrast = 1; //defaults to 1
+					defaultPipeline.imageProcessing.exposure = 5; //defaults to 1
+					
+					var horizontalBlur = new BABYLON.BlurPostProcess("hb", new BABYLON.Vector2(1.0, 0), 5, 1.0, null, null, engine, false)
+					
+					var blur = new BABYLON.PostProcessRenderEffect(engine, "blur", function() { return [horizontalBlur] });					
+					
+					scene.postProcessRenderPipelineManager.addPipeline(defaultPipeline);
+					scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("defaultPipeline", camera);
+					
+					var bgCamera = new BABYLON.ArcRotateCamera("BGCamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new BABYLON.Vector3(0, 20, 0), scene);
+					bgCamera.layerMask = 0x10000000;					
+				   
+					scene.activeCameras = [camera, bgCamera];
+					
+					return camera;
+					
+				}                
+				
+				function addButton(text) {
+					
+					var buttonSize = 100;
+					var margin = 100;
+					var button = BABYLON.GUI.Button.CreateSimpleButton(text+"_button", text);
+					screenWidth = window.innerWidth;
+					screenHeight = window.innerHeight;                     
+					button.width = buttonSize + "px"
+					button.fontSize = 12;
+					button.height = (buttonSize / 1.65) + "px";
+					button.color = "black";
+					button.cornerRadius = 20;
+					button.background = "skyblue";
+					button.paddingBottom = "10px";
+					button.paddingRight = "20px";
+					button.alpha = 0.5;
+					if(text == "Exit Game") {
+						button.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+						button.top = "-" + ((screenHeight / 2) - (buttonSize / 2)) + "px";
+						button.onPointerDownObservable.add(function() {
+							stopGame();
+						});                        
+					}
+					
+					advancedTexture.addControl(button);                 
+				}
+				
+				function addThumbButton(name){
+					
+					var buttonSize = 60;
+					var button = BABYLON.GUI.Button.CreateSimpleButton(name+"_button", name);
+					screenWidth = window.innerWidth;
+					screenHeight = window.innerHeight;                    
+					button.width = buttonSize + "px"
+					button.height = buttonSize + "px"
+					button.fontSize = 12;
+					button.color = "black";
+					button.cornerRadius = 75;
+					button.alpha = 0.5;
+					button.background = "#87ceeb";
+					
+					if(name == "forward") {
+						button.width = buttonSize * 1.6 + "px"
+						button.height = buttonSize * 1.6 + "px" 
+						button.fontSize = 14;
+						button.left = "-" + ((screenWidth / 2) - (buttonSize * 2)) + "px";
+						button.top = (screenHeight / 2) - (buttonSize * 2.5) + "px";
+						button.onPointerDownObservable.add(function() {
+							keys.forward = 1;
+						});                
+						button.onPointerUpObservable.add(function() {
+							keys.forward = 0;
+						});
+					}
+					if(name == "back") {
+						button.left = "-" + ((screenWidth / 2) - (buttonSize * 2)) + "px";
+						button.top = ((screenHeight / 2) - (buttonSize / 1.2)) + "px"; 
+						button.onPointerDownObservable.add(function() {
+							keys.back = 1;
+						});                
+						button.onPointerUpObservable.add(function() {
+							keys.back = 0;
+						});
+					} 
+					if(name == "right") {
+						button.left = "-" + ((screenWidth / 2) - (buttonSize * 3)) + "px";
+						button.top = ((screenHeight / 2) - (buttonSize / 0.7)) + "px"; 
+						button.onPointerDownObservable.add(function() {
+							keys.right = 1;
+						});                
+						button.onPointerUpObservable.add(function() {
+							keys.right= 0;
+						});
+					}
+					if(name == "left") {
+						button.left = "-" + ((screenWidth / 2) - (buttonSize * 1)) + "px";
+						button.top = ((screenHeight / 2) - (buttonSize / 0.7)) + "px";  
+						button.onPointerDownObservable.add(function() {
+							keys.left = 1;
+						});                
+						button.onPointerUpObservable.add(function() {
+							keys.left = 0;
+						});
+					}
+					
+					advancedTexture.addControl(button); 
+				   
+				}
+				
+				function createSkyBox(file,floorImage) {
+					
+					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/skybox/", file).then((result) => {
+						var skybox = result.meshes[0];
+						var skyboxMaterial = new BABYLON.StandardMaterial('skyBox', scene);
+						skyboxMaterial.backFaceCulling = false;
+						skyboxMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1);
+						skyboxMaterial.specularColor = new BABYLON.Color3(1, 1, 1);
+						skyboxMaterial.disableLighting = true;
+						skybox.material = skyboxMaterial;
+						skybox.material.freeze();
+						skybox.freezeWorldMatrix();
+					});
+					
+					// Floor
+					var floor = new BABYLON.MeshBuilder.CreatePlane("plane", {height: 2000, width: 2000});
+					var floorMaterial = new BABYLON.StandardMaterial("ground", scene);
+					floorMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/" + floorImage, scene);
+					floorMaterial.diffuseTexture.uScale = 8;
+					floorMaterial.diffuseTexture.vScale = 8;
+					floorMaterial.specularColor = new BABYLON.Color3(0, 0, 0); 
+					floor.material = floorMaterial;
+					floor.material.freeze();
+					floor.freezeWorldMatrix();
+					
+					floor.rotation.x = BABYLON.Tools.ToRadians(90);
+					floor.position = new BABYLON.Vector3(0, -10, 0);
+					
+				}
+				
+				function ammoMesh(mesh) {
+					let positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
+					let normals = mesh.getVerticesData(BABYLON.VertexBuffer.NormalKind);
+					let colors = mesh.getVerticesData(BABYLON.VertexBuffer.ColorKind);
+					let uvs = mesh.getVerticesData(BABYLON.VertexBuffer.UVKind);
+					let indices = mesh.getIndices();
+								
+					mesh.updateFacetData();
+					var localPositions = mesh.getFacetLocalPositions(); 
+					var triangleCount = localPositions.length;
+								
+					let mTriMesh = new Ammo.btTriangleMesh();
+					let removeDuplicateVertices = true;
+					let tmpPos1 = new Ammo.btVector3(0,0,0);
+					let tmpPos2 = new Ammo.btVector3(0,0,0);
+					let tmpPos3 = new Ammo.btVector3(0,0,0);
+								
+					var _g = 0;
+					while(_g < triangleCount) {
+						var i = _g++;
+						var index0 = indices[i * 3];
+						var index1 = indices[i * 3 + 1];
+						var index2 = indices[i * 3 + 2];
+						var vertex0 = new Ammo.btVector3(positions[index0 * 3],positions[index0 * 3 + 1],positions[index0 * 3 + 2]);
+						var vertex1 = new Ammo.btVector3(positions[index1 * 3],positions[index1 * 3 + 1],positions[index1 * 3 + 2]);
+						var vertex2 = new Ammo.btVector3(positions[index2 * 3],positions[index2 * 3 + 1],positions[index2 * 3 + 2]);
+						mTriMesh.addTriangle(vertex0,vertex1,vertex2);
+					}
+											
+					let shape = new Ammo.btBvhTriangleMeshShape( mTriMesh, true, true );
+					let localInertia = new Ammo.btVector3(0, 0, 0);
+					let transform = new Ammo.btTransform;
+
+					transform.setIdentity();
+					transform.setOrigin(new Ammo.btVector3(mesh.position.x,mesh.position.y,mesh.position.z));
+
+					let rotation = mesh.rotationQuaternion || new BABYLON.Quaternion.RotationYawPitchRoll(mesh.rotation.x, mesh.rotation.y, mesh.rotation.z)
+
+					transform.setRotation(new Ammo.btQuaternion(
+					rotation.x, rotation.y, rotation.z, rotation.w));
+							
+					let motionState = new Ammo.btDefaultMotionState(transform);
+					let rbInfo = new Ammo.btRigidBodyConstructionInfo(0, motionState, shape, localInertia);
+					let body = new Ammo.btRigidBody(rbInfo);
+					world.addRigidBody(body);
+
+				}				
+				
+				function createGroundFromHeightMap(heightmap,diffuse) {
+					
+					ground = BABYLON.Mesh.CreateGroundFromHeightMap("ground", pathname + "/textures/" + heightmap, 225, 225, 128, 0, 20, scene, false, () => {
+						//ground.physicsImpostor = new BABYLON.PhysicsImpostor(player, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, friction: 1, restitution: 0.1 }, scene);
+						ammoMesh(ground);
+					})
+					ground.position.y = 0;
+					ground.position.x = 0;
+					ground.position.z = 0;
+					ground.checkCollisions = true;
+					ground.isVisible = true;
+					
+					const groundMaterial = new BABYLON.StandardMaterial("ground");
+					groundMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/"+diffuse, scene);
+					groundMaterial.diffuseTexture.uScale = 12;
+					groundMaterial.diffuseTexture.vScale = 12;
+					groundMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+					ground.material = groundMaterial;
+					//ground.material.freeze();
+					//ground.freezeWorldMatrix();
+					
+					ground.receiveShadows = true;
+					
+					var water = BABYLON.Mesh.CreateGroundFromHeightMap("water", pathname + "/textures/" + heightmap, 125, 125, 20, 0, 1, scene, false);
+					water.material = new BABYLON.GridMaterial('waterMaterial', scene);
+					water.position.y = ground.position.y + 2;
+					water.position.x = ground.position.x + 25;
+					water.position.z = ground.position.z - 25;
+					water.checkCollisions = false;
+					var waterMaterial = new BABYLON.StandardMaterial("water");    
+					waterMaterial.diffuseColor = new BABYLON.Color3(0.46, 0.64, 0.89);
+					waterMaterial.specularColor = new BABYLON.Color3(1, 1, 1);
+					waterMaterial.opacity = 0.5;
+					water.material = waterMaterial;
+					water.material.freeze();
+					water.freezeWorldMatrix();
+					
+					//water.receiveShadows = true;					
+					
+				}                
+				
+				function fixTarget() { 
+					advancedTexture.dispose();
+					engine.resize();
+					addGUI();
+					var target = BABYLON.Matrix.Translation(0,-0.5,0);
+					camera.getProjectionMatrix().multiplyToRef(target, camera.getProjectionMatrix());                    
+				}                
+				
+				var statsDiv = document.getElementById("stats-text");
+				setInterval(() => {
+					statsDiv.innerHTML = "<b>" + Math.round(engine.getFps()) + " FPS</b> ";
+				}, 100);
+				
+				window.addEventListener("resize", function () {
+					fixTarget();
+				});
+				
+				function stopGame() {
+					engine.dispose();
+					location.reload();
+				}
+				
+				scene.getAnimationRatio();                
+				
+				return scene;
+				
+			}
+			
+// End scene creation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			
+			// Starts the engine and scene
+			window.initFunction = async function() {
+				
+				await Ammo();
+				
+				var asyncEngineCreation = async function() {
+					try {
+						return createDefaultEngine();
+					} catch(e) {
+						console.log("the available createEngine function failed. Creating the default engine instead");
+					return createDefaultEngine();
+					}
+				}
+				
+				window.engine = await asyncEngineCreation();
+				if (!engine) throw 'engine should not be null.';
+				startRenderLoop(engine, canvas);
+				window.scene = createScene();
+				
+			};
+			
+			// Prepares the UI and calls window.initFunction
+			function startGame() {
+				loadingOverlay.style.display = "none";
+				playButton.style.display = "none";
+				setTimeout(function(){
+					document.body.requestFullscreen();
+					setTimeout(function(){
+						loadingOverlay.style.display = "";	
+					}, 100);					
+					initFunction().then(() => { 
+						sceneToRender = scene;
+						setTimeout(function(){
+							startDiv.style.display = "none";
+						}, 3000);                        
+					});
+				}, 100);
+			}
+			
+			// When the DOM is fully loaded, display the play button
+			window.addEventListener('load', (event) => {
+				playButton.style.display = ""; // (display = "") removes (display = "none")
+			});
+			
+			function getRandomNumber(l, h) {
+				return Math.floor(Math.random() * (h - l + 1)) + l;
+			}			
+			
+		</script>		
+		
+	</body>
+	
+</html>
