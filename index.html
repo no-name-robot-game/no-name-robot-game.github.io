@@ -10,11 +10,7 @@
 		<script src="babylonjs/dat.gui.min.js"></script>
 		<script src="babylonjs/Assets.js"></script>
 		<script src="babylonjs/recast.js"></script>
-		<script src="babylonjs/ammo.js"></script>
-		<script src="babylonjs/HavokPhysics_umd.js"></script>
-		<script src="babylonjs/cannon.js"></script>
-		<script src="babylonjs/Oimo.js"></script>
-		<script src="babylonjs/earcut.min.js"></script>
+		<script src="babylonjs/cannon.js"></script>w
 		<script src="babylonjs/babylon.js"></script>
 		<script src="babylonjs/babylonjs.materials.min.js"></script>
 		<script src="babylonjs/babylonjs.proceduralTextures.min.js"></script>
@@ -34,110 +30,34 @@
 				height: 100vw;
 				margin: 0;
 				padding: 0;
-			}
-			
-			#startDiv {
-				z-index: 15;
-				position: absolute;
-				background-color: #000000;
-				color: #ffffff;
-				left: 0px;
-				top: 0px;			
-				width: 100vw;
-				height: 100vh;
-				touch-action: none;
-				border:none;
-				overflow: hidden;
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-				align-items: center;
-				text-align: center;
-			} 
-			
-			#mainImage {
-				z-index: 20;
-				max-height: 60vh;
-				max-width: 90vw;
-				border-radius: 20px;
-				cursor: pointer;
-			}            
+			}          
 			
 			#renderCanvas {
 				z-index: 5;
 				position: absolute;
+				top: 0vh;
 				left: 0vw;
-				top: 0vh;			
 				width: 100vw;
 				height: 100vh;
 				touch-action: none;
-			}			
-			
-			#stats-div {
-				z-index: 8;
-				position: fixed;
-				top: 15px;
-				left: 50%;
-				overflow: hidden;
-				pointer-events: none;
-				touch-action: none;
-				display: flex;
-				flex-direction: column;
-				justify-content: center;
-				align-items: center;
-				text-align: center;
-				-webkit-user-select: none; /* Safari */
-				-ms-user-select: none; /* IE 10 and IE 11 */
-				user-select: none; /* Standard syntax */
-			}
-			
-			#stats-text {
-				display: inline-block;
-				color: rgb(255, 255, 255);
-				width: 100%;
-				height: 100%;
-				font-size: small;
-				text-shadow: 0px 0px 4px #000000;
-			}
-			
-			#loadingOverlay {
-				color: #FFFFFF;
-				font-family: Courier;
-				font-size: 4vh;
-				z-index: 10;
-				position: absolute;
-				left: 0vw;
-				bottom: 52vh;
-				width: 100vw;
-				height: 5vh;
-			}            
+			}			         
 			
 		</style>		
 	</head>
 	
 	<body>
 		
-		<div id="startDiv">
-			<div id="loadingOverlay"><p align=center><font>...loading...</font></p></div>             
-			<img id="mainImage" src="./images/play.png" border="0" onclick="startGame('play');">
-		</div>
-		
-		<canvas id="renderCanvas"></canvas>	
-		
-		<div id="stats-div"> 
-			<p id="stats-text">FPS: 60</p>
-		</div> 		
+		<canvas id="renderCanvas"></canvas>		
 		
 		<script>
+			
+			const urlParams = new URLSearchParams(window.location.search);
+			const viewMode = urlParams.get("view");
+			
 			var canvas = document.getElementById("renderCanvas");
 			
 			//var pathname = "https://gilhoy.com/robots";
-			//var pathname = ".";
-			var pathname = "https://no-name-robot-game.github.io";
-
-			console.log("begin");
-			
-// Begin scene creation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////			
+			var pathname = "https://no-name-robot-game.github.io";		
 			
 			var startRenderLoop = function (engine, canvas) {
 				engine.runRenderLoop(function () {
@@ -145,45 +65,14 @@
 						sceneToRender.render();
 					}
 				});
-			}
-			
-			var engine = null;
-			var scene = null;
-			var sceneToRender = null;
-			var camera = null;
-			var light1 = null;
-			var light2 = null;
-			var light3 = null;
-			var ground = null;
-			var advancedTexture = null;
-			var player = null;
-			var playerModel = null;
-			var screenWidth = null;
-			var screenHeight = null; 
-			var shadowGenerator = null;
-			var prop = null;
-			var speed = null;
-			var cell = null;
-			
-			var idleAnim = null;
-			var walkAnim = null;
-			var jumpAnim = null;
-			var runAnim = null;			
-			
-			var state = 'play';
-			var enlargeStatus = false;
-			var canvasParent = document.body;
-			var playButton = document.getElementById("mainImage");
-			var startDiv = document.getElementById("startDiv");
-			var loadingOverlay = document.getElementById("loadingOverlay");
-			
-			playButton.style.display = "none";            
+			}          
 			
 			var createDefaultEngine = function() { return new BABYLON.Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true,  disableWebGL2Support: false}); };
-			var statsDiv = document.getElementById("stats-text");
-			var renderCanvas = document.getElementById("renderCanvas");
 			
 			var createScene = () => {
+				
+				var pathname = "https://gilhoy.com/robots";
+				var player = null;
 				
 				const keys = {
 					jump: 0,
@@ -197,43 +86,109 @@
 				
 				const scene = new BABYLON.Scene(engine);
 				
+				scene.clearColor = BABYLON.Color3.Blue();
+				
+				engine.setHardwareScalingLevel(1);
+				
 				// Create physics
-				const gravity = new BABYLON.Vector3(0, -15, 0);
-				scene.physicsPlugin = new BABYLON.AmmoJSPlugin();
-				scene.enablePhysics(gravity, scene.physicsPlugin);
-				world = scene.physicsPlugin.world;
+				scene.enablePhysics(null, new BABYLON.CannonJSPlugin());
+				var physicsEngine = scene.getPhysicsEngine();
+				physicsEngine.setGravity(new BABYLON.Vector3(0, -10, 0));
+				var gravIsOn = true;
 				
 				// The following function calls are creating the entirety of the game world //////////////
 					
-					addPlayerCamera();
+					//Add cameras and postprocessing effects
+					addCameras();										
 					
+					// Add the GUI
 					addGUI();
 					
-					// We are adding three different type of lights as "one" light source for their differing effects
+					// We are adding three different type of lights as "one" light source, and a physical representation of the sun
 					addLights(0.25,0.3,0.3,50,200,90); // usage: addlights(light#1 brightness, light#2 brightness, light#3 brightness, light position x, light position y, light position z);
 					
 					// Loads skybox and creates skybox floor
-					createSkyBox("skybox_001.glb","lawn_g.jpg"); // usage: createSkyBox(model file, floor texture);
+					if (viewMode != "test") {
+						createSkyBox("skybox_003.glb","lawn_g.jpg", 0); // usage: createSkyBox(model file, floor texture, show grid);
+					} else {
+						createSkyBox("skybox_003.glb","lawn_g.jpg", 1);	
+					}
 					
-					// Creates ground from heightmap file
-					createGroundFromHeightMap("heightmap4.jpg","lawn_g.jpg"); // usage: createGroundFromHeightMap(heightmap file, ground texture);
+					// Creates ground from heightmap file and places at 0,0,0
+					if (viewMode != "test") {
+						createGroundFromHeightMap("heightmap4.jpg","lawn_g.jpg", 0); // usage: createGroundFromHeightMap(heightmap file, ground texture, show grid);
+					} else {
+						createGroundFromHeightMap("heightmap4.jpg","lawn_g.jpg", 1);
+					}
 					
-					// Adds a 3D model, can be of type 'props' or 'actors'.
-					//attachProp("actors","behemoth2.glb",-40,6,-40,1,135); // usage: attachProp(type, file, model position x, model position y, model position z, scale, rotation 0 to 360);	
+					//createFactory("mill_front_01.jpg", "mill_front_heightmap_02.png");
 					
-					// We want a bunch of trees, but we need the ground in place first, so we call an async function to check for it
 					//addForestAsync(1, 7, 50);
-					//addForestAsync(2, 9, 58);				
+					//addForestAsync(2, 8, 58);					
 					
-					// Creates the player object with the size of the 3D model
-					createPlayer(1.902,1.4); // usage: createPlayer(height, width);
-					
-					// Attaches the 3D model to the player object
-					attachModelToPlayer("peewee"); // usage: attachModelToPlayer(model name);
+					// Creates the player object and places at ground level at 0,0
+					createPlayerAsync(); // player must be called after ground is finalized
 					
 				// The preceding function calls are creating the entirety of the game world //////////////
 				
-// In-scene functions /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+			// In-scene functions /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////// 
+				
+				function zoneBox(player, height, width, depth, radX, radY, radZ, posX, posY, posZ) {
+					
+					const box = BABYLON.MeshBuilder.CreateBox("gravBox01", {height: height, width: width, depth: depth});
+					box.showBoundingBox = true;
+					box.checkCollisions = true;
+					box.isVisible = true;
+					
+					var boxMaterial = new BABYLON.StandardMaterial('boxmat', scene);
+					boxMaterial.backFaceCulling = true;	
+					boxMaterial.diffuseColor = BABYLON.Color3.Green();
+					boxMaterial.emissiveColor = new BABYLON.Color3(0.1,0.1,0.1);
+					boxMaterial.alpha = 0.0;
+					box.material = boxMaterial;				
+					
+					box.checkCollisions = true;
+					
+					box.rotation.y = BABYLON.Tools.ToRadians(radY);
+					box.rotation.z = BABYLON.Tools.ToRadians(radY);
+					box.rotation.x = BABYLON.Tools.ToRadians(radX);										
+					box.position = new BABYLON.Vector3(posX, posY, posZ);
+					
+					scene.registerBeforeRender(function () {
+						
+						/* if (box.intersectsMesh(player, false)) {
+							box.material.emissiveColor = new BABYLON.Color3(1, 0, 0);
+							physicsEngine.setGravity(new BABYLON.Vector3(8, -10, 0));
+						} else {
+							box.material.emissiveColor = new BABYLON.Color3(1, 1, 1);
+							physicsEngine.setGravity(new BABYLON.Vector3(0, -10, 0));
+						} */
+					});				
+					
+				}
+				
+				function toggleGravity() {
+					if (gravIsOn == true) {
+						physicsEngine.setGravity(new BABYLON.Vector3(8, -10, 0));
+						gravIsOn = false;
+					} else {
+						physicsEngine.setGravity(new BABYLON.Vector3(0, -10, 0));
+						gravIsOn = true;
+					}
+					console.log("gravIsOn = " + gravIsOn);
+					
+					return gravIsOn;
+				}
+				
+				function addForestAsync(rows, nTrees, corner) {
+					
+					scene.onReadyObservable.add(() => {
+						setTimeout(()=> {
+							addForest(rows, nTrees, corner)	
+						}, 500);
+					});				
+					
+				}  				
 				
 				function addForest(rows, nTrees, corner) {
 					
@@ -268,83 +223,114 @@
 						
 					}
 					
-				}
+				}				
 				
-				function attachProp(type,file,posX,posY,posZ,scale,rotation) {
+				function createFactory(file, heightMap) {					
 					
-					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/" + type + "/", file).then((result) => {
-						
-						prop = result.meshes[0];
-						prop.scaling.x = scale;
-						prop.scaling.y = scale;
-						prop.scaling.z = scale;
-						prop.position.x = posX;
-						prop.position.y = posY;
-						prop.position.z = posZ;
-						prop.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(rotation), BABYLON.Space.LOCAL);
-						prop.material = cell;
-						//prop.material.freeze();
-						prop.freezeWorldMatrix();
-						
-						shadowGenerator.addShadowCaster(prop);	
-						
-						prop.checkCollisions = true;
-						
+					wall = BABYLON.Mesh.CreateGroundFromHeightMap("wall", pathname + "/textures/"+ heightMap, 50, 50, 64, -2, 2, scene, false, () => {
+						wall.physicsImpostor = new BABYLON.PhysicsImpostor(wall, BABYLON.PhysicsImpostor.HeightmapImpostor, { mass: 0, friction: 9999, restitution: 0 });						
 					});
 					
-				} 
-				
-				function getHeightAtOctreeGroundCoordinates(x, z) {
-					
-					var height;
-					var origin = new BABYLON.Vector3(x, 100, z);
-					var down = new BABYLON.Vector3(x, -100, z);
-					
-					var ray = new BABYLON.Ray(origin, down);
-					var hit = scene.pickWithRay(ray);
-					
-					if (hit.pickedPoint) {
-						height = hit.pickedPoint.y;
+					if (viewMode == "test") {
+						wall.material = new BABYLON.GridMaterial('groundMaterial', scene);
+					} else {
+						var wallMaterial = new BABYLON.StandardMaterial("wall", scene);
+						wallMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/" + file, scene);
+						wallMaterial.diffuseTexture.uScale = 1;
+						wallMaterial.diffuseTexture.vScale = 1;
+						wallMaterial.specularColor = new BABYLON.Color3(0, 0, 0); 
+						wall.material = wallMaterial;
+						wall.material.backFaceCulling = false;
+						wall.material.freeze();
+						wall.freezeWorldMatrix();					
 					}
 					
-					return height;
+					wall.checkCollisions = true;
+					
+					wall.rotation.x = BABYLON.Tools.ToRadians(-90);
+					wall.rotation.y = BABYLON.Tools.ToRadians(225);
+					wall.position = new BABYLON.Vector3(-35, 8, -35);					
+					
+				}				
+				
+				function createGroundFromHeightMap(heightmap,diffuse,grid) {
+					
+					ground = BABYLON.Mesh.CreateGroundFromHeightMap("ground", pathname + "/textures/" + heightmap, 125, 125, 64, 0, 20, scene, false, () => {
+						ground.physicsImpostor = new BABYLON.PhysicsImpostor(ground, BABYLON.PhysicsImpostor.HeightmapImpostor, { mass: 0, friction: 9999, restitution: 0 });						
+					});
+					ground.position.y = 0;
+					ground.position.x = 0;
+					ground.position.z = 0;
+					ground.checkCollisions = true;
+					ground.isVisible = true;
+					
+					if (grid == 1) {
+						ground.material = new BABYLON.GridMaterial('groundMaterial', scene);
+					} else {
+						const groundMaterial = new BABYLON.StandardMaterial("ground");
+                        groundMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/"+diffuse, scene);
+                        groundMaterial.diffuseTexture.uScale = 8;
+                        groundMaterial.diffuseTexture.vScale = 8;
+                        groundMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
+                        ground.material = groundMaterial;				
+					} 					
+						
+					ground.receiveShadows = true;				
+					
 				}
 				
-				function addForestAsync(rows, nTrees, corner) {
+				function createPlayerAsync() {
 					
 					scene.onReadyObservable.add(() => {
 						setTimeout(()=> {
-							addForest(rows, nTrees, corner)	
+							createPlayer();
+							/*setTimeout(()=> {
+								zoneBox(player, 11, 1, 60, 351, 90, 90, -16, 4.5, 41);
+							}, 500);*/	
 						}, 500);
 					});				
 					
-				}              
+				} 
 				
-				function createPlayer(height,diameter) {
+				function createPlayer() {
 					
-					player = BABYLON.MeshBuilder.CreateCylinder('playerCylinder', {height: height, diameter: diameter}, scene);
-					player.isVisible = false;
-					player.checkCollisions = true;
-					
-					player.physicsImpostor = new BABYLON.PhysicsImpostor(player, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 1000, friction: 50, restitution: 0.0 }, scene);
-					
-					const Material = new BABYLON.StandardMaterial('material', scene);
-					Material.emissiveColor = new BABYLON.Color3(0, 0.58, 0.86);
-					player.material = Material;
-					player.material.freeze();
-					player.position.y = 5;
-					camera.setTarget(player);
-					
-					const minSpeed = 0.05;
-					const maxSpeed = 0.10;
+					var minSpeed = 0.05;
+					var maxSpeed = 0.10;
+					var height = 0.8;
+					var width = 0.4;
 					
 					let speed = minSpeed;
+					
+					player = BABYLON.MeshBuilder.CreateCapsule("playerCapsule", { tessellation:16, subdivisions:6, height: height, radius: width/2 }, scene);
+					player.isVisible = true;
+					player.showBoundingBox = true;
+					
+					const playerMaterial = new BABYLON.StandardMaterial('material', scene);
+					playerMaterial.emissiveColor = new BABYLON.Color3(0, 20, 20);
+					player.material = playerMaterial;
+					player.material.freeze();
+					player.position.x = 17.5307;
+					player.position.y = 9.5764;
+					player.position.z = 0.5734;
+					
+					player.physicsImpostor = new BABYLON.PhysicsImpostor(player,BABYLON.PhysicsImpostor.BoxImpostor, { mass: 1, friction: 9999, restitution: 0 }, scene);
+					player.checkCollisions = true;
+					player.moveWithCollisions = true;
+					player.applyGravity = true;
+					player.physicsImpostor.physicsBody.angularDamping = 0.9999;
+					
+					setTimeout(()=> {
+						camera.setTarget(player);
+					}, 500);					
 					
 					window.addEventListener('keydown', handleKeyDown, false);
 					window.addEventListener('keyup', handleKeyUp, false);
 					
 					let action = 16
 					function handleKeyDown (evt) {
+						
+						physicsEngine.setGravity(new BABYLON.Vector3(0, -5, 0));
+						
 						if (evt.keyCode == 32) {
 							keys.jump = 1; // space
 						}
@@ -384,6 +370,7 @@
 						}
 						
 						action = evt.keyCode;
+						
 					}
 					
 					camera.lockedTarget = player;               
@@ -392,24 +379,38 @@
 						if (player != null) {
 							player.update();
 						}
-					});                
+					}); 
+					
+					var isJumping = 0;
 					
 					player.update = function () {
 						
+						//console.log(player.position);
+						
 						var cameraForwardRayPosition = camera.getForwardRay().direction
-						var cameraForwardRayPositionWithoutY = new BABYLON.Vector3(cameraForwardRayPosition.x, 0, cameraForwardRayPosition.z)
+						var cameraForwardRayPositionWithoutY = new BABYLON.Vector3(cameraForwardRayPosition.x, 0, cameraForwardRayPosition.z);
+						//player.lookAt(player.position.add(cameraForwardRayPositionWithoutY), 0, 0, 0);
 						
 						if (keys) {
 							
+							physicsEngine.setGravity(new BABYLON.Vector3(0, -10, 0));
+							
 							player.rotationQuaternion.x = 0;
-							player.rotationQuaternion.z = 0;							
+							player.rotationQuaternion.z = 0;						
 							
 							if (keys.jump) {
-								player.physicsImpostor.applyImpulse(new BABYLON.Vector3(0, 0.25, 0), player.getAbsolutePosition());
-								setTimeout(function(){
-									keys.jump = 0;
-								}, 500);
+								if (isJumping == 0) {									
+									if (player.intersectsMesh(ground)) {
+										player.physicsImpostor.applyImpulse(new BABYLON.Vector3(0, 4, 0), player.getAbsolutePosition());
+										isJumping = 1;
+									} else {
+										isJumping = 0;
+									}
+								}
+							} else {
+								isJumping = 0;
 							}
+							
 							if (keys.left) {
 								player.locallyTranslate(new BABYLON.Vector3(-speed/2, 0, 0));
 							}
@@ -424,12 +425,27 @@
 								player.lookAt(player.position.add(cameraForwardRayPositionWithoutY), 0, 0, 0);
 								player.position = player.position.add(new BABYLON.Vector3(-cameraForwardRayPosition.x * speed, 0, -cameraForwardRayPosition.z * speed));
 							}
+							
 						}
 					}
+					
+					if (viewMode != "test") {
+						scene.onReadyObservable.add(() => {
+							setTimeout(()=> {
+								attachModelToPlayer("peewee");						
+							}, 500);
+						});
+					}
+					
+					shadowGenerator2.addShadowCaster(player); 	
+					
+					return player;
 					
 				}
 				
 				function attachModelToPlayer(name) {
+					
+					player.isVisible = false;
 					
 					if ( name == "prototype" ) {
 						file = "prototype_anim_05.glb";
@@ -439,6 +455,8 @@
 					}
 					
 					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/actors/", file).then((result) => {
+						
+						var skeleton = result.skeletons[0];
 						
 						var playerModel = result.meshes[0];
 						var playerRotate = 0;
@@ -450,24 +468,20 @@
 						
 						playerModel.position = new BABYLON.Vector3(0, 0, 0);
 						
-						if ( name == "peewee" ) {
-							idleAnim = result.animationGroups[0];
-							walkAnim = result.animationGroups[1];
-							jumpAnim = result.animationGroups[3];
-							runAnim = result.animationGroups[2];
-							playerRotate = 0;
-						}
+						playerModel.scaling.x = 0.5;
+						playerModel.scaling.y = 0.5;
+						playerModel.scaling.z = 0.5;
 						
-						if ( name == "prototype" ) {
-							
-							playerModel.scaling = 2;							
-							
-							idleAnim = result.animationGroups[0];
-							walkAnim = result.animationGroups[1];
-							jumpAnim = result.animationGroups[2];
-							runAnim = result.animationGroups[3];
-							playerRotate = 87;
-						}
+						skeleton.animationPropertiesOverride = new BABYLON.AnimationPropertiesOverride();
+						skeleton.animationPropertiesOverride.enableBlending = true;
+						skeleton.animationPropertiesOverride.blendingSpeed = 0.01;
+						skeleton.animationPropertiesOverride.loopMode = 1;						
+						
+						idleAnim = result.animationGroups[0];
+						walkAnim = result.animationGroups[1];
+						jumpAnim = result.animationGroups[6];
+						runAnim = result.animationGroups[2];
+						playerRotate = 180;
 						
 						idleAnim.start(true);
 						
@@ -477,16 +491,37 @@
 						// Create a Main player Transform Root
 						playerModelTransform = new BABYLON.TransformNode("playerModel_Root", scene);    
 						playerModel.parent = playerModelTransform;                        
-						playerModel.position = new BABYLON.Vector3(0, 0, 0);
+						//playerModel.position = new BABYLON.Vector3(0, 0, 0);
 						playerModel.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(playerRotate), BABYLON.Space.LOCAL);
 						const startRotation = playerModel.rotationQuaternion.clone(); 
 						
 						playerModel.parent = player;
-						playerModel.position = new BABYLON.Vector3(playerModel.parent.position.y - 4.6, playerModel.parent.position.z - 0.9, playerModel.parent.position.x);
+						playerModel.position = new BABYLON.Vector3(playerModel.parent.position.y - 9.55, playerModel.parent.position.z - 1 , playerModel.parent.position.x - 17.5);
+						
+						isJumping = 0;
 						
 						playerModel.update = function () {
 							
 							if (keys) {
+								
+								/*if (keys.jump) {
+									jumpAnim.start(true);
+								} else {
+									jumpAnim.stop(true);
+								}*/
+								
+								if (keys.jump) {
+									if (isJumping == 0) {									
+										jumpAnim.start(false, 1.0, jumpAnim.from, jumpAnim.to, true);
+										isJumping = 1;
+									}
+									 (isJumping);
+								} else {
+									jumpAnim.stop(true);
+									isJumping = 0
+								}
+								
+								
 								if (keys.left) {
 									idleAnim.stop(true);
 									walkAnim.start(true); 
@@ -512,11 +547,14 @@
 									walkAnim.stop(true);
 									idleAnim.start(true);   
 								}                            
-							} 
+							} else {
+								//console.log("no keys");
+							}
 							
 						}
 						
-						shadowGenerator.addShadowCaster(playerModel);                   	
+						shadowGenerator.addShadowCaster(playerModel);						
+						shadowGenerator2.addShadowCaster(playerModel);                   	
 						
 						engine.runRenderLoop(() => {
 							if (playerModel != null) {
@@ -526,12 +564,34 @@
 						
 					});
 					
+				}  				
+				
+				function attachProp(type,file,posX,posY,posZ,scale,rotation) {
+					
+					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/" + type + "/", file).then((result) => {
+						
+						var prop = result.meshes[0];
+						prop.scaling.x = scale;
+						prop.scaling.y = scale;
+						prop.scaling.z = scale;
+						prop.position.x = posX;
+						prop.position.y = posY;
+						prop.position.z = posZ;
+						prop.rotate(BABYLON.Axis.Y, BABYLON.Tools.ToRadians(rotation), BABYLON.Space.LOCAL);
+						prop.freezeWorldMatrix();
+						
+						shadowGenerator.addShadowCaster(prop);	
+						
+						prop.checkCollisions = true;						
+						
+					});
+					
 				}                
 				
 				function addGUI() {
 					
-					screenWidth = window.innerWidth;
-					screenHeight = window.innerHeight;
+					screenWidth = canvas.width;
+					screenHeight = canvas.height;
 					
 					advancedTexture = new BABYLON.GUI.AdvancedDynamicTexture.CreateFullscreenUI("UI");
 					advancedTexture.layer.layerMask = 0x10000000;
@@ -542,9 +602,57 @@
 					addThumbButton("left");  
 					addThumbButton("right");
 					
-					addButton("Exit Game");
+					addButton("fullscreen");
 					
-				}                
+					//addButton("gravity");
+					//addButton("joypad lock");
+					
+				}
+				
+				function createSkyBox(file,floorImage,grid) {
+					
+					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/skybox/", file).then((result) => {
+						var skybox = result.meshes[0];
+						var sky = result.meshes[2];
+						var mountain = result.meshes[1];
+						
+					if (grid == 1) {
+						sky.isVisible = false;
+						mountain.material = new BABYLON.GridMaterial('groundMaterial', scene);
+					} else {						
+						var skyboxMaterial = new BABYLON.StandardMaterial('skyBox', scene);
+						skyboxMaterial.backFaceCulling = false;
+						skyboxMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1);
+						skyboxMaterial.specularColor = new BABYLON.Color3(1, 1, 1);
+						skyboxMaterial.disableLighting = true;
+						skybox.material = skyboxMaterial;
+					}
+						
+						skybox.material.freeze();
+						skybox.freezeWorldMatrix();
+					});
+					
+					// Floor
+					var floor = new BABYLON.MeshBuilder.CreatePlane("plane", {height: 2000, width: 2000});
+					
+					if (grid == 1) {
+						floor.material = new BABYLON.GridMaterial('groundMaterial', scene);
+					} else {
+						var floorMaterial = new BABYLON.StandardMaterial("ground", scene);
+						floorMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/" + floorImage, scene);
+						floorMaterial.diffuseTexture.uScale = 8;
+						floorMaterial.diffuseTexture.vScale = 8;
+						floorMaterial.specularColor = new BABYLON.Color3(0, 0, 0); 
+						floor.material = floorMaterial;				
+					} 
+					
+					floor.material.freeze();
+					floor.freezeWorldMatrix();
+					
+					floor.rotation.x = BABYLON.Tools.ToRadians(90);
+					floor.position = new BABYLON.Vector3(0, -80, 0);
+					
+				}				
 				
 				function addLights(int1,int2,int3,x,y,z) {
 					
@@ -565,50 +673,49 @@
 					lightSphere.material.emissiveColor = new BABYLON.Color3(1, 1, 0);
 					
 					shadowGenerator = new BABYLON.ShadowGenerator(1024, light2);
-					shadowGenerator.useBlurExponentialShadowMap = true; 					
+					shadowGenerator.useBlurExponentialShadowMap = true;
+					
+					shadowGenerator2 = new BABYLON.ShadowGenerator(1024, light3);
+					shadowGenerator2.useBlurExponentialShadowMap = true; 					
 					
 				}                
 				
-				function addPlayerCamera() {
+				function addCameras() {
 					
 					camera = new BABYLON.ArcRotateCamera('arcCamera1', 0, 0, 10, BABYLON.Vector3.Zero(), scene);
 					camera.attachControl(canvas, false);
 					camera.setPosition(new BABYLON.Vector3(-20, 20, -20));
 					camera.checkCollisions = true;
-					camera.applyGravity = true;
+					camera.applyGravity = false;
 					camera.useAutoRotationBehavior = false;
-					camera.useFramingBehavior = true;
-					camera.wheelDeltaPercentage = 0.01; // change rate at which scroll wheel changes zoom
-					camera.lowerRadiusLimit = 14; // set how close the camera can get to the target
-					camera.upperRadiusLimit = 2000; // set how far the camera can zoom out
-					camera.upperBetaLimit = Math.PI / 1.5; // stops the camera from going below the ground
+					//camera.useFramingBehavior = true;
+					camera.wheelDeltaPercentage = 0.01;
+					camera.lowerRadiusLimit = 5;
+					camera.upperRadiusLimit = 5;
+					camera.lowerBetaLimit = Math.PI / 3;
+					camera.upperBetaLimit = Math.PI / 2;
 					
 					camera.keysLeft = [];
 					camera.keysRight = [];
 					camera.keysUp = [];
 					camera.keysDown = [];
 					
+					var guiCamera = new BABYLON.ArcRotateCamera("guiCamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new BABYLON.Vector3(0, 20, 0), scene);
+					guiCamera.layerMask = 0x10000000;
+					
 					var defaultPipeline = new BABYLON.DefaultRenderingPipeline("default", true, scene, [camera]);
-					defaultPipeline.fxaaEnabled = true; //defaults to false
-					defaultPipeline.imageProcessing.toneMappingEnabled  = false; //defaults to false          
-					defaultPipeline.imageProcessing.contrast = 1; //defaults to 1
-					defaultPipeline.imageProcessing.exposure = 5; //defaults to 1
-					
-					var horizontalBlur = new BABYLON.BlurPostProcess("hb", new BABYLON.Vector2(1.0, 0), 5, 1.0, null, null, engine, false)
-					
-					var blur = new BABYLON.PostProcessRenderEffect(engine, "blur", function() { return [horizontalBlur] });					
+					defaultPipeline.fxaaEnabled = true;         
+					defaultPipeline.imageProcessing.contrast = 1;
+					defaultPipeline.imageProcessing.exposure = 4;	                    
 					
 					scene.postProcessRenderPipelineManager.addPipeline(defaultPipeline);
-					scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("defaultPipeline", camera);
+					scene.postProcessRenderPipelineManager.attachCamerasToRenderPipeline("defaultPipeline", camera, true);
 					
-					var bgCamera = new BABYLON.ArcRotateCamera("BGCamera", Math.PI / 2 + Math.PI / 7, Math.PI / 2, 100, new BABYLON.Vector3(0, 20, 0), scene);
-					bgCamera.layerMask = 0x10000000;					
-				   
-					scene.activeCameras = [camera, bgCamera];
+					scene.activeCameras = [camera, guiCamera];
 					
-					return camera;
+					return camera
 					
-				}                
+				}
 				
 				function addButton(text) {
 					
@@ -622,27 +729,49 @@
 					button.height = (buttonSize / 1.65) + "px";
 					button.color = "black";
 					button.cornerRadius = 20;
-					button.background = "skyblue";
+					button.background = "yellow";
 					button.paddingBottom = "10px";
 					button.paddingRight = "20px";
 					button.alpha = 0.5;
-					if(text == "Exit Game") {
+					if(text == "fullscreen") {
 						button.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
 						button.top = "-" + ((screenHeight / 2) - (buttonSize / 2)) + "px";
 						button.onPointerDownObservable.add(function() {
-							stopGame();
+							fullscreenButton();
 						});                        
 					}
+					if(text == "gravity") {
+						button.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+						button.top = "-" + ((screenHeight / 2) - (buttonSize / 2)) + "px";
+						button.onPointerDownObservable.add(function() {
+							toggleGravity(this);
+						});                        
+					}
+					if(text == "joypad lock") {
+						button.horizontalAlignment = BABYLON.GUI.Control.HORIZONTAL_ALIGNMENT_RIGHT;
+						button.top = "-" + ((screenHeight / 2) - (buttonSize * 1.2)) + "px";
+						button.onPointerDownObservable.add(function() {
+							joypadLock();
+						});                        
+					}					
 					
 					advancedTexture.addControl(button);                 
+				} 
+				
+				function fullscreenButton() {
+					if (document.fullscreenElement) {
+						document.exitFullscreen();
+					} else {
+						document.body.requestFullscreen();
+					}
 				}
 				
 				function addThumbButton(name){
 					
 					var buttonSize = 60;
 					var button = BABYLON.GUI.Button.CreateSimpleButton(name+"_button", name);
-					screenWidth = window.innerWidth;
-					screenHeight = window.innerHeight;                    
+					screenWidth = canvas.width;
+					screenHeight = canvas.height;                    
 					button.width = buttonSize + "px"
 					button.height = buttonSize + "px"
 					button.fontSize = 12;
@@ -696,140 +825,58 @@
 					}
 					
 					advancedTexture.addControl(button); 
-				   
-				}
-				
-				function createSkyBox(file,floorImage) {
 					
-					BABYLON.SceneLoader.ImportMeshAsync("", pathname + "/models/skybox/", file).then((result) => {
-						var skybox = result.meshes[0];
-						var skyboxMaterial = new BABYLON.StandardMaterial('skyBox', scene);
-						skyboxMaterial.backFaceCulling = false;
-						skyboxMaterial.diffuseColor = new BABYLON.Color3(1, 1, 1);
-						skyboxMaterial.specularColor = new BABYLON.Color3(1, 1, 1);
-						skyboxMaterial.disableLighting = true;
-						skybox.material = skyboxMaterial;
-						skybox.material.freeze();
-						skybox.freezeWorldMatrix();
-					});
-					
-					// Floor
-					var floor = new BABYLON.MeshBuilder.CreatePlane("plane", {height: 2000, width: 2000});
-					var floorMaterial = new BABYLON.StandardMaterial("ground", scene);
-					floorMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/" + floorImage, scene);
-					floorMaterial.diffuseTexture.uScale = 8;
-					floorMaterial.diffuseTexture.vScale = 8;
-					floorMaterial.specularColor = new BABYLON.Color3(0, 0, 0); 
-					floor.material = floorMaterial;
-					floor.material.freeze();
-					floor.freezeWorldMatrix();
-					
-					floor.rotation.x = BABYLON.Tools.ToRadians(90);
-					floor.position = new BABYLON.Vector3(0, -10, 0);
-					
-				}
-				
-				function ammoMesh(mesh) {
-					let positions = mesh.getVerticesData(BABYLON.VertexBuffer.PositionKind);
-					let normals = mesh.getVerticesData(BABYLON.VertexBuffer.NormalKind);
-					let colors = mesh.getVerticesData(BABYLON.VertexBuffer.ColorKind);
-					let uvs = mesh.getVerticesData(BABYLON.VertexBuffer.UVKind);
-					let indices = mesh.getIndices();
-								
-					mesh.updateFacetData();
-					var localPositions = mesh.getFacetLocalPositions(); 
-					var triangleCount = localPositions.length;
-								
-					let mTriMesh = new Ammo.btTriangleMesh();
-					let removeDuplicateVertices = true;
-					let tmpPos1 = new Ammo.btVector3(0,0,0);
-					let tmpPos2 = new Ammo.btVector3(0,0,0);
-					let tmpPos3 = new Ammo.btVector3(0,0,0);
-								
-					var _g = 0;
-					while(_g < triangleCount) {
-						var i = _g++;
-						var index0 = indices[i * 3];
-						var index1 = indices[i * 3 + 1];
-						var index2 = indices[i * 3 + 2];
-						var vertex0 = new Ammo.btVector3(positions[index0 * 3],positions[index0 * 3 + 1],positions[index0 * 3 + 2]);
-						var vertex1 = new Ammo.btVector3(positions[index1 * 3],positions[index1 * 3 + 1],positions[index1 * 3 + 2]);
-						var vertex2 = new Ammo.btVector3(positions[index2 * 3],positions[index2 * 3 + 1],positions[index2 * 3 + 2]);
-						mTriMesh.addTriangle(vertex0,vertex1,vertex2);
-					}
-											
-					let shape = new Ammo.btBvhTriangleMeshShape( mTriMesh, true, true );
-					let localInertia = new Ammo.btVector3(0, 0, 0);
-					let transform = new Ammo.btTransform;
-
-					transform.setIdentity();
-					transform.setOrigin(new Ammo.btVector3(mesh.position.x,mesh.position.y,mesh.position.z));
-
-					let rotation = mesh.rotationQuaternion || new BABYLON.Quaternion.RotationYawPitchRoll(mesh.rotation.x, mesh.rotation.y, mesh.rotation.z)
-
-					transform.setRotation(new Ammo.btQuaternion(
-					rotation.x, rotation.y, rotation.z, rotation.w));
-							
-					let motionState = new Ammo.btDefaultMotionState(transform);
-					let rbInfo = new Ammo.btRigidBodyConstructionInfo(0, motionState, shape, localInertia);
-					let body = new Ammo.btRigidBody(rbInfo);
-					world.addRigidBody(body);
-
 				}				
 				
-				function createGroundFromHeightMap(heightmap,diffuse) {
+				function getHeightAtOctreeGroundCoordinates(x, z) {
 					
-					ground = BABYLON.Mesh.CreateGroundFromHeightMap("ground", pathname + "/textures/" + heightmap, 225, 225, 128, 0, 20, scene, false, () => {
-						//ground.physicsImpostor = new BABYLON.PhysicsImpostor(player, BABYLON.PhysicsImpostor.BoxImpostor, { mass: 0, friction: 1, restitution: 0.1 }, scene);
-						ammoMesh(ground);
-					})
-					ground.position.y = 0;
-					ground.position.x = 0;
-					ground.position.z = 0;
-					ground.checkCollisions = true;
-					ground.isVisible = true;
+					var height;
+					var origin = new BABYLON.Vector3(x, 100, z);
+					var down = new BABYLON.Vector3(x, -100, z);
 					
-					const groundMaterial = new BABYLON.StandardMaterial("ground");
-					groundMaterial.diffuseTexture = new BABYLON.Texture(pathname + "/textures/"+diffuse, scene);
-					groundMaterial.diffuseTexture.uScale = 12;
-					groundMaterial.diffuseTexture.vScale = 12;
-					groundMaterial.specularColor = new BABYLON.Color3(0, 0, 0);
-					ground.material = groundMaterial;
-					//ground.material.freeze();
-					//ground.freezeWorldMatrix();
+					var ray = new BABYLON.Ray(origin, down);
+					var hit = scene.pickWithRay(ray);
 					
-					ground.receiveShadows = true;
+					if (hit.pickedPoint) {
+						height = hit.pickedPoint.y;
+					}
 					
-					var water = BABYLON.Mesh.CreateGroundFromHeightMap("water", pathname + "/textures/" + heightmap, 125, 125, 20, 0, 1, scene, false);
-					water.material = new BABYLON.GridMaterial('waterMaterial', scene);
-					water.position.y = ground.position.y + 2;
-					water.position.x = ground.position.x + 25;
-					water.position.z = ground.position.z - 25;
-					water.checkCollisions = false;
-					var waterMaterial = new BABYLON.StandardMaterial("water");    
-					waterMaterial.diffuseColor = new BABYLON.Color3(0.46, 0.64, 0.89);
-					waterMaterial.specularColor = new BABYLON.Color3(1, 1, 1);
-					waterMaterial.opacity = 0.5;
-					water.material = waterMaterial;
-					water.material.freeze();
-					water.freezeWorldMatrix();
-					
-					//water.receiveShadows = true;					
-					
-				}                
+					return height;
+				} 				
 				
 				function fixTarget() { 
 					advancedTexture.dispose();
 					engine.resize();
-					addGUI();
-					var target = BABYLON.Matrix.Translation(0,-0.5,0);
-					camera.getProjectionMatrix().multiplyToRef(target, camera.getProjectionMatrix());                    
-				}                
+					setTimeout(function(){
+						addGUI();
+						var target = BABYLON.Matrix.Translation(0,-0.5,0);
+						camera.getProjectionMatrix().multiplyToRef(target, camera.getProjectionMatrix()); 
+					}, 200);					                   
+				}
 				
-				var statsDiv = document.getElementById("stats-text");
-				setInterval(() => {
-					statsDiv.innerHTML = "<b>" + Math.round(engine.getFps()) + " FPS</b> ";
-				}, 100);
+				/*var isLocked = false;
+				
+				scene.onPointerDown = function (evt) {
+					
+					if (!isLocked) {
+						canvas.requestPointerLock = canvas.requestPointerLock || canvas.msRequestPointerLock || canvas.mozRequestPointerLock || canvas.webkitRequestPointerLock || false;
+						if (canvas.requestPointerLock) {
+							canvas.requestPointerLock();
+						}
+					}
+				};
+				
+				var pointerlockchange = function () {
+					var controlEnabled = document.pointerLockElement || document.mozPointerLockElement || document.webkitPointerLockElement || document.msPointerLockElement || false;
+					
+					if (!controlEnabled) {
+						camera.detachControl(canvas);
+						isLocked = false;
+					} else {
+						camera.attachControl(canvas);
+						isLocked = true;
+					}
+				}; */            
 				
 				window.addEventListener("resize", function () {
 					fixTarget();
@@ -840,25 +887,28 @@
 					location.reload();
 				}
 				
-				scene.getAnimationRatio();                
+				scene.getAnimationRatio();
+				
+				scene.onReadyObservable.add(() => {
+					setTimeout(()=> {
+						fixTarget();
+					}, 500);
+				});			
 				
 				return scene;
 				
 			}
 			
-// End scene creation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+			// End scene creation ///////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 			
 			// Starts the engine and scene
 			window.initFunction = async function() {
-				
-				await Ammo();
 				
 				var asyncEngineCreation = async function() {
 					try {
 						return createDefaultEngine();
 					} catch(e) {
-						console.log("the available createEngine function failed. Creating the default engine instead");
-					return createDefaultEngine();
+						return createDefaultEngine();
 					}
 				}
 				
@@ -871,30 +921,21 @@
 			
 			// Prepares the UI and calls window.initFunction
 			function startGame() {
-				loadingOverlay.style.display = "none";
-				playButton.style.display = "none";
-				setTimeout(function(){
-					document.body.requestFullscreen();
-					setTimeout(function(){
-						loadingOverlay.style.display = "";	
-					}, 100);					
+				setTimeout(function(){					
 					initFunction().then(() => { 
-						sceneToRender = scene;
-						setTimeout(function(){
-							startDiv.style.display = "none";
-						}, 3000);                        
+						sceneToRender = scene;                      
 					});
 				}, 100);
 			}
 			
 			// When the DOM is fully loaded, display the play button
 			window.addEventListener('load', (event) => {
-				playButton.style.display = ""; // (display = "") removes (display = "none")
+				startGame();
 			});
 			
 			function getRandomNumber(l, h) {
 				return Math.floor(Math.random() * (h - l + 1)) + l;
-			}			
+			}		
 			
 		</script>		
 		
